@@ -5,13 +5,18 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <math.h>
+
+#define POINTER_WRITE_BUFF_SIZE 1U
+#define TEMP_READ_BUFF_SIZE 2U
+#define CONF_WRITE_BUFF_SIZE 2U
 
 /* LM75BD Registers (p.8) */
-#define LM75BD_REG_CONF 0b01U  /* Configuration Register (R/W) */
-#define LM75BD_REG_TEMP 0b00U  /* Temperature Register (R/O) */
-#define LM75BD_REG_TOR 0b11U   /* Overtemperature Shutdown Register (R/W) */
-#define LM75BD_REG_THYST 0b10U /* Overtemperature Hysteresis Register (R/W) */
+typedef enum {
+  LM75BD_REG_TEMP = 0x0U,  /* Temperature Register (R/O) */
+  LM75BD_REG_CONF = 0x1U,  /* Configuration Register (R/W) */
+  LM75BD_REG_THYST = 0x2U, /* Overtemperature Hysteresis Register (R/W) */
+  LM75BD_REG_TOR = 0x3U,   /* Overtemperature Shutdown Register (R/W) */
+} lm75bd_reg_t;
 
 error_code_t lm75bdInit(lm75bd_config_t *config) {
   error_code_t errCode;
@@ -28,18 +33,23 @@ error_code_t lm75bdInit(lm75bd_config_t *config) {
   return ERR_CODE_SUCCESS;
 }
 
-#define POINTER_WRITE_BUFF_SIZE 1U
-static error_code_t writePointerLM75BD(uint8_t devAddr, uint8_t ptr) {
+/* LM75BD Write to Pointer Register (p.15) */
+static error_code_t writePointerLM75BD(uint8_t devAddr, lm75bd_reg_t reg) {
   uint8_t buff[POINTER_WRITE_BUFF_SIZE] = {0};
-  buff[0] = ptr;
+
+  buff[0] = reg;
+
   return i2cSendTo(devAddr, buff, POINTER_WRITE_BUFF_SIZE);
 }
 
-#define TEMP_READ_BUFF_SIZE 2U
+/* LM75BD Read Temp, Tos or Thyst register with preset pointer (p.15) */
 error_code_t readTempLM75BD(uint8_t devAddr, float *temp) {
   error_code_t errCode;
 
-  errCode = writePointerLM75BD(devAddr, LM75BD_REG_TEMP);
+  if (temp == NULL)
+    return ERR_CODE_INVALID_ARG;
+
+  RETURN_IF_ERROR_CODE(writePointerLM75BD(devAddr, LM75BD_REG_TEMP));
 
   uint8_t buff[TEMP_READ_BUFF_SIZE];
   errCode = i2cReceiveFrom(devAddr, buff, TEMP_READ_BUFF_SIZE);
@@ -54,7 +64,6 @@ error_code_t readTempLM75BD(uint8_t devAddr, float *temp) {
   return ERR_CODE_SUCCESS;
 }
 
-#define CONF_WRITE_BUFF_SIZE 2U
 error_code_t writeConfigLM75BD(uint8_t devAddr, uint8_t osFaultQueueSize, uint8_t osPolarity,
                                    uint8_t osOperationMode, uint8_t devOperationMode) {
   error_code_t errCode;

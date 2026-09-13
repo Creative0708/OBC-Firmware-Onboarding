@@ -43,6 +43,9 @@ void initThermalSystemManager(lm75bd_config_t *config) {
 }
 
 error_code_t thermalMgrSendEvent(thermal_mgr_event_t *event) {
+  if (event == NULL)
+    return ERR_CODE_INVALID_ARG;
+
   if (xQueueSend(thermalMgrQueueHandle, event, 0) == errQUEUE_FULL)
     return ERR_CODE_QUEUE_FULL;
 
@@ -53,8 +56,7 @@ void osHandlerLM75BD(void) {
   error_code_t errCode;
 
   thermal_mgr_event_t event = {THERMAL_MGR_EVENT_OS_HANDLER_TRIG};
-  if (xQueueSend(thermalMgrQueueHandle, &event, 0) == errQUEUE_FULL)
-    LOG_ERROR_CODE(ERR_CODE_QUEUE_FULL);
+  LOG_IF_ERROR_CODE(thermalMgrSendEvent(&event));
 }
 
 static void thermalMgr(void *pvParameters) {
