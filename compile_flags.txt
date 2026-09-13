@@ -1,0 +1,2 @@
+# file needs to be here so `.clangd` works properly
+# https://github.com/clangd/clangd/issues/1038#issuecomment-2614169354

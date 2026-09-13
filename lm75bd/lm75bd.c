@@ -8,7 +8,10 @@
 #include <math.h>
 
 /* LM75BD Registers (p.8) */
-#define LM75BD_REG_CONF 0x01U  /* Configuration Register (R/W) */
+#define LM75BD_REG_CONF 0b01U  /* Configuration Register (R/W) */
+#define LM75BD_REG_TEMP 0b00U  /* Temperature Register (R/O) */
+#define LM75BD_REG_TOR 0b11U   /* Overtemperature Shutdown Register (R/W) */
+#define LM75BD_REG_THYST 0b10U /* Overtemperature Hysteresis Register (R/W) */
 
 error_code_t lm75bdInit(lm75bd_config_t *config) {
   error_code_t errCode;
@@ -25,9 +28,29 @@ error_code_t lm75bdInit(lm75bd_config_t *config) {
   return ERR_CODE_SUCCESS;
 }
 
+#define POINTER_WRITE_BUFF_SIZE 1U
+static error_code_t writePointerLM75BD(uint8_t devAddr, uint8_t ptr) {
+  uint8_t buff[POINTER_WRITE_BUFF_SIZE] = {0};
+  buff[0] = ptr;
+  return i2cSendTo(devAddr, buff, POINTER_WRITE_BUFF_SIZE);
+}
+
+#define TEMP_READ_BUFF_SIZE 2U
 error_code_t readTempLM75BD(uint8_t devAddr, float *temp) {
-  /* Implement this driver function */
-  
+  error_code_t errCode;
+
+  errCode = writePointerLM75BD(devAddr, LM75BD_REG_TEMP);
+
+  uint8_t buff[TEMP_READ_BUFF_SIZE];
+  errCode = i2cReceiveFrom(devAddr, buff, TEMP_READ_BUFF_SIZE);
+  if (errCode != ERR_CODE_SUCCESS)
+    return errCode;
+
+  // Per data sheet
+  int16_t rawTemp = (int16_t)(int8_t)buff[0] << 3 // MSB, sign extended
+                    | (int16_t)buff[1] >> 5;      // LSB, not sign extended
+  *temp = rawTemp * 0.125;
+
   return ERR_CODE_SUCCESS;
 }
 
@@ -43,30 +66,30 @@ error_code_t writeConfigLM75BD(uint8_t devAddr, uint8_t osFaultQueueSize, uint8_
 
   buff[0] = LM75BD_REG_CONF;
 
-  uint8_t osFaltQueueRegData = 0;
+  uint8_t osFaultQueueRegData = 0;
   switch (osFaultQueueSize) {
     case 1:
-      osFaltQueueRegData = 0;
+      osFaultQueueRegData = 0;
       break;
     case 2:
-      osFaltQueueRegData = 1;
+      osFaultQueueRegData = 1;
       break;
     case 4:
-      osFaltQueueRegData = 2;
+      osFaultQueueRegData = 2;
       break;
     case 6:
-      osFaltQueueRegData = 3;
+      osFaultQueueRegData = 3;
       break;
     default:
       return ERR_CODE_INVALID_ARG;
   }
 
-  buff[1] |= (osFaltQueueRegData << 3);
+  buff[1] |= (osFaultQueueRegData << 3);
   buff[1] |= (osPolarity << 2);
   buff[1] |= (osOperationMode << 1);
   buff[1] |= devOperationMode;
 
-  errCode = i2cSendTo(LM75BD_OBC_I2C_ADDR, buff, CONF_WRITE_BUFF_SIZE);
+  errCode = i2cSendTo(devAddr, buff, CONF_WRITE_BUFF_SIZE);
   if (errCode != ERR_CODE_SUCCESS) return errCode;
 
   return ERR_CODE_SUCCESS;

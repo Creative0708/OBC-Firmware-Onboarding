@@ -1,0 +1,10 @@
+CompileFlags:
+  Add:
+    - "-Isys"
+    - "-Isys/i2c"
+    - "-Isys/console_io"
+    - "-Isys/logging"
+    - "-Ilm75bd"
+    - "-Iservices/controller"
+    - "-Iservices/thermal_mgr"
+    - "-Ifreertos/include"
